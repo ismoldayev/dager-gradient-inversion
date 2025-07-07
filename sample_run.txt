@@ -1,0 +1,24 @@
+micromamba run -p /scratch/margulan_ismoldayev/micromamba/envs/dager_env_hala_explicit python3 optimize_raw_embed.py \
+    --dataset cola \
+    --split val \
+    --n_inputs 2 \
+    --batch_size 1 \
+    --model_path gpt2 \
+    --device cuda \
+    --task seq_class \
+    --cache_dir ./models_cache \
+    --rank_tol 1e-7 \
+    --rank_cutoff 0 \
+    --n_layers 5 \
+    --l1_filter all \
+    --l2_filter non-overlap \
+    --num_steps_x_opt 3000 \
+    --lr_x_opt 0.01 \
+    --max_seq_len_to_recover 5 \
+    --apply_norm_heuristic \
+    --teacher_force_recovered_tokens False \
+    --use_batch_reinit \
+    --num_reinit 100 \
+    --use_orthogonal_context \
+    --initialize_x_from_gt \
+    --enable_sanity_checks

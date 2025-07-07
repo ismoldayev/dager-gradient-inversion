@@ -1,4 +1,5 @@
 import argparse
+from html import parser
 import time
 import sys
 
@@ -70,10 +71,60 @@ def get_args(argv=None):
     parser.add_argument('--train_method', type=str, default='full', choices=['full', 'lora'])
     parser.add_argument('--lora_r', type=int, default=None)
 
+    # Q Optimization (legacy - kept for compatibility)
+    q_opt_group = parser.add_argument_group('Q Optimization Attack Arguments (Legacy)')
+    q_opt_group.add_argument('--num_steps_q_opt', type=int, default=1000, 
+                             help='Number of optimization steps for q parameters')
+    q_opt_group.add_argument('--lr_q_opt', type=float, default=0.01, 
+                             help='Learning rate for q parameter optimization')
+
+    q_opt_group.add_argument('--initialize_q_from_gt', action='store_true',
+                             help='DEBUG: Initialize q for the first token from GT embedding.')
+    q_opt_group.add_argument('--gt_init_mse_threshold', type=float, default=0.2,
+                             help='MSE threshold for using GT-derived q for init.')
+    q_opt_group.add_argument('--max_seq_len_to_recover', type=int, default=1,
+                             help='Maximum sequence length to attempt to recover. -1 for full original length.')
+    q_opt_group.add_argument('--num_steps_q_opt_per_token', type=int, default=None,
+                             help='Optimization steps per token. Defaults to num_steps_q_opt if None.')
+    q_opt_group.add_argument('--teacher_force_recovered_tokens', type=lambda x: (str(x).lower() == 'true'), default=True,
+                             help='Use canonical embedding of recovered token for next step context (True/False).')
+    q_opt_group.add_argument('--apply_norm_heuristic', action='store_true',
+                             help='Apply norm heuristic during optimization.')
+    
+    # Raw Embedding Optimization 
+    raw_opt_group = parser.add_argument_group('Raw Embedding Optimization Attack Arguments')
+    raw_opt_group.add_argument('--num_steps_x_opt', type=int, default=None,
+                              help='Number of optimization steps for raw embedding parameters. Defaults to num_steps_q_opt if None.')
+    raw_opt_group.add_argument('--lr_x_opt', type=float, default=None,
+                              help='Learning rate for raw embedding optimization. Defaults to lr_q_opt if None.')
+    raw_opt_group.add_argument('--initialize_x_from_gt', action='store_true',
+                              help='Initialize raw embeddings from ground truth embeddings.')
+    raw_opt_group.add_argument('--use_batch_reinit', action='store_true',
+                             help='Enable batch reinitialization of raw embedding optimization.')
+    raw_opt_group.add_argument('--num_reinit', type=int, default=5,
+                             help='Number of random initializations to try in batch reinit.')
+    raw_opt_group.add_argument('--enable_sanity_checks', action='store_true',
+                              help='Enable running and printing of full sanity checks')
+    # Orthogonal context option: exclude previous token direction when building Ck basis
+    raw_opt_group.add_argument('--use_orthogonal_context', action='store_true',
+                              help='Use orthogonal basis for context by excluding previous token direction')
+    # Diversity regularization: penalize similarity to previous tokens
+    raw_opt_group.add_argument('--add_diversity_loss', action='store_true',
+                              help='Add diversity regularization during optimization')
+    # Debug comparison: compare GT vs closest token losses
+    raw_opt_group.add_argument('--compare_gt_vs_closest_token_losses', action='store_true',
+                              help='Compare ground-truth vs closest token losses for debugging')
+
+    parser.add_argument('--debug_fix_eff_rank_Ck', type=int, default=-1,
+                         help='DEBUG: Fix effective rank for Ck_basis. -1 for auto. Values > 0 override auto rank for Ck.')
+
     if argv is None:
        argv = sys.argv[1:]
     args=parser.parse_args(argv)
 
+    if args.num_steps_q_opt_per_token is None:
+        args.num_steps_q_opt_per_token = args.num_steps_q_opt
+        
     if args.n_incorrect is None:
         args.n_incorrect = args.batch_size
 
